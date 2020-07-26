@@ -3,6 +3,9 @@ extern crate graphics;
 extern crate opengl_graphics;
 extern crate piston;
 
+mod camera;
+mod utils;
+
 use glutin_window::GlutinWindow as Window;
 use opengl_graphics::{GlGraphics, OpenGL};
 use piston::event_loop::{EventSettings, Events};
@@ -12,15 +15,7 @@ use piston::input::{
 };
 use piston::window::WindowSettings;
 
-fn clamp(value: f64, min: f64, max: f64) -> f64 {
-    if value < min {
-        min
-    } else if value > max {
-        max
-    } else {
-        value
-    }
-}
+use camera::{Camera, ZoomDirection};
 
 pub struct App {
     gl: GlGraphics,
@@ -43,7 +38,7 @@ impl App {
 
             let transform = c
                 .transform
-                .scale(camera.zoom, camera.zoom)
+                .scale(camera.zoom(), camera.zoom())
                 .trans(camera.x, camera.y);
 
             let square_transform = transform
@@ -57,54 +52,6 @@ impl App {
 
     fn update(&mut self, args: &UpdateArgs) {
         self.rotation += 2.0 * args.dt;
-    }
-}
-
-enum ZoomDirection {
-    In,
-    Out,
-}
-
-pub struct Camera {
-    x: f64,
-    y: f64,
-    zoom: f64,
-    step: f64,
-}
-
-impl Camera {
-    const MIN_ZOOM: f64 = 0.125;
-    const MAX_ZOOM: f64 = 8.;
-    const ZOOM_STEPS: f64 = 101.;
-
-    fn new() -> Camera {
-        Camera {
-            x: 0.,
-            y: 0.,
-            zoom: 1.,
-            step: 51.,
-        }
-    }
-
-    fn zoom_at(&mut self, x: f64, y: f64, zoom: ZoomDirection) {
-        let old_zoom = self.zoom;
-
-        self.step += match zoom {
-            ZoomDirection::In => 1.,
-            ZoomDirection::Out => -1.,
-        };
-
-        self.step = clamp(self.step, 0., Self::ZOOM_STEPS - 1.);
-
-        let ln_min_zoom = f64::ln(Self::MIN_ZOOM);
-        let ln_max_zoom = f64::ln(Self::MAX_ZOOM);
-
-        self.zoom = f64::exp(
-            ln_min_zoom + (ln_max_zoom - ln_min_zoom) * self.step / (Self::ZOOM_STEPS - 1.0)
-        );
-
-        self.x -= (x / old_zoom) - (x / self.zoom);
-        self.y -= (y / old_zoom) - (y / self.zoom);
     }
 }
 
@@ -135,40 +82,28 @@ fn main() {
     while let Some(e) = events.next(&mut window) {
         if let Some(args) = e.render_args() {
             app.render(&args, &camera);
-        }
-
-        if let Some(args) = e.update_args() {
+        } else if let Some(args) = e.update_args() {
             app.update(&args);
-        }
-
-        if let Some(args) = e.mouse_relative_args() {
+        } else if let Some(args) = e.mouse_relative_args() {
             if left_down {
                 camera.x += args[0];
                 camera.y += args[1];
             }
-        }
-
-        if let Some(Button::Mouse(b)) = e.press_args() {
+        } else if let Some(Button::Mouse(b)) = e.press_args() {
             if b == MouseButton::Left {
                 left_down = true;
             }
-        }
-
-        if let Some(Button::Mouse(b)) = e.release_args() {
+        } else if let Some(Button::Mouse(b)) = e.release_args() {
             if b == MouseButton::Left {
                 left_down = false;
             }
-        }
-
-        if let Some(args) = e.mouse_scroll_args() {
+        } else if let Some(args) = e.mouse_scroll_args() {
             if args[1] > 0. {
                 camera.zoom_at(x, y, ZoomDirection::In);
             } else if args[1] < 0. {
                 camera.zoom_at(x, y, ZoomDirection::Out);
             }
-        }
-
-        if let Some(args) = e.mouse_cursor_args() {
+        } else if let Some(args) = e.mouse_cursor_args() {
             x = args[0] as f64;
             y = args[1] as f64;
         }
