@@ -7,19 +7,28 @@ use glutin_window::GlutinWindow as Window;
 use opengl_graphics::{GlGraphics, OpenGL};
 use piston::event_loop::{EventSettings, Events};
 use piston::input::{
-    Button, MouseButton, MouseRelativeEvent, PressEvent, ReleaseEvent, RenderArgs, RenderEvent,
-    UpdateArgs, UpdateEvent,
+    Button, MouseButton, MouseCursorEvent, MouseRelativeEvent, MouseScrollEvent, PressEvent,
+    ReleaseEvent, RenderArgs, RenderEvent, UpdateArgs, UpdateEvent,
 };
 use piston::window::WindowSettings;
+
+fn clamp(value: f64, min: f64, max: f64) -> f64 {
+    if value < min {
+        min
+    } else if value > max {
+        max
+    } else {
+        value
+    }
+}
 
 pub struct App {
     gl: GlGraphics,
     rotation: f64,
-    camera_offset: [f64; 2],
 }
 
 impl App {
-    fn render(&mut self, args: &RenderArgs) {
+    fn render(&mut self, args: &RenderArgs, camera: &Camera) {
         use graphics::*;
 
         const BACKGROUND: [f32; 4] = [1., 1., 1., 1.];
@@ -28,12 +37,14 @@ impl App {
         let square = rectangle::square(0.0, 0.0, 300.0);
         let (square_x, square_y) = (300., 300.);
         let rotation = self.rotation;
-        let (camera_x, camera_y) = (self.camera_offset[0], self.camera_offset[1]);
 
         self.gl.draw(args.viewport(), |c, gl| {
             clear(BACKGROUND, gl);
 
-            let transform = c.transform.trans(-camera_x, -camera_y);
+            let transform = c
+                .transform
+                .scale(camera.zoom, camera.zoom)
+                .trans(camera.x, camera.y);
 
             let square_transform = transform
                 .trans(square_x, square_y)
@@ -49,6 +60,54 @@ impl App {
     }
 }
 
+enum ZoomDirection {
+    In,
+    Out,
+}
+
+pub struct Camera {
+    x: f64,
+    y: f64,
+    zoom: f64,
+    step: f64,
+}
+
+impl Camera {
+    const MIN_ZOOM: f64 = 0.125;
+    const MAX_ZOOM: f64 = 8.;
+    const ZOOM_STEPS: f64 = 101.;
+
+    fn new() -> Camera {
+        Camera {
+            x: 0.,
+            y: 0.,
+            zoom: 1.,
+            step: 51.,
+        }
+    }
+
+    fn zoom_at(&mut self, x: f64, y: f64, zoom: ZoomDirection) {
+        let old_zoom = self.zoom;
+
+        self.step += match zoom {
+            ZoomDirection::In => 1.,
+            ZoomDirection::Out => -1.,
+        };
+
+        self.step = clamp(self.step, 0., Self::ZOOM_STEPS - 1.);
+
+        let ln_min_zoom = f64::ln(Self::MIN_ZOOM);
+        let ln_max_zoom = f64::ln(Self::MAX_ZOOM);
+
+        self.zoom = f64::exp(
+            ln_min_zoom + (ln_max_zoom - ln_min_zoom) * self.step / (Self::ZOOM_STEPS - 1.0)
+        );
+
+        self.x -= (x / old_zoom) - (x / self.zoom);
+        self.y -= (y / old_zoom) - (y / self.zoom);
+    }
+}
+
 fn main() {
     let opengl = OpenGL::V3_2;
 
@@ -61,18 +120,21 @@ fn main() {
         .build()
         .unwrap();
 
+    let mut camera = Camera::new();
+
     let mut app = App {
         gl: GlGraphics::new(opengl),
         rotation: 0.0,
-        camera_offset: [0., 0.],
     };
 
     let mut left_down = false;
+    let mut x = 0.;
+    let mut y = 0.;
 
     let mut events = Events::new(EventSettings::new());
     while let Some(e) = events.next(&mut window) {
         if let Some(args) = e.render_args() {
-            app.render(&args);
+            app.render(&args, &camera);
         }
 
         if let Some(args) = e.update_args() {
@@ -81,10 +143,8 @@ fn main() {
 
         if let Some(args) = e.mouse_relative_args() {
             if left_down {
-                app.camera_offset = [
-                    app.camera_offset[0] - args[0],
-                    app.camera_offset[1] - args[1],
-                ];
+                camera.x += args[0];
+                camera.y += args[1];
             }
         }
 
@@ -98,6 +158,19 @@ fn main() {
             if b == MouseButton::Left {
                 left_down = false;
             }
+        }
+
+        if let Some(args) = e.mouse_scroll_args() {
+            if args[1] > 0. {
+                camera.zoom_at(x, y, ZoomDirection::In);
+            } else if args[1] < 0. {
+                camera.zoom_at(x, y, ZoomDirection::Out);
+            }
+        }
+
+        if let Some(args) = e.mouse_cursor_args() {
+            x = args[0] as f64;
+            y = args[1] as f64;
         }
     }
 }
