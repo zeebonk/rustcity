@@ -1,0 +1,11 @@
+[package]
+name = "rustcity"
+version = "0.1.0"
+authors = ["Gijs van der Voort <vandervoort.gijs@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+piston = "0.51.0"
+piston2d-graphics = "0.36.0"
+pistoncore-glutin_window = "0.65.0"
+piston2d-opengl_graphics = "0.72.0"
