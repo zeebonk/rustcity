@@ -9,50 +9,45 @@ mod utils;
 use glutin_window::GlutinWindow as Window;
 use opengl_graphics::{GlGraphics, OpenGL};
 use piston::event_loop::{EventSettings, Events};
-use piston::input::{
-    Button, MouseButton, MouseCursorEvent, MouseRelativeEvent, MouseScrollEvent, PressEvent,
-    ReleaseEvent, RenderArgs, RenderEvent, UpdateArgs, UpdateEvent,
-};
+use piston::input::{Button, MouseButton, RenderArgs, UpdateArgs, ButtonState};
 use piston::window::WindowSettings;
+
+use piston::{Event, Input, Loop, Motion};
 
 use camera::{Camera, ZoomDirection};
 
-pub struct App {
-    gl: GlGraphics,
+pub struct AppState {
     rotation: f64,
 }
 
-impl App {
-    fn render(&mut self, args: &RenderArgs, camera: &Camera) {
-        use graphics::*;
+fn render(app_state: &AppState, args: &RenderArgs, camera: &Camera, gl: &mut GlGraphics) {
+    use graphics::*;
 
-        const BACKGROUND: [f32; 4] = [1., 1., 1., 1.];
-        const FOREGROUND: [f32; 4] = [1.0, 0.0, 0.0, 1.0];
+    const BACKGROUND: [f32; 4] = [1., 1., 1., 1.];
+    const FOREGROUND: [f32; 4] = [1.0, 0.0, 0.0, 1.0];
 
-        let square = rectangle::square(0.0, 0.0, 300.0);
-        let (square_x, square_y) = (300., 300.);
-        let rotation = self.rotation;
+    let square = rectangle::square(0.0, 0.0, 300.0);
+    let (square_x, square_y) = (300., 300.);
 
-        self.gl.draw(args.viewport(), |c, gl| {
-            clear(BACKGROUND, gl);
+    gl.draw(args.viewport(), |c, gl| {
+        clear(BACKGROUND, gl);
 
-            let transform = c
-                .transform
-                .scale(camera.zoom(), camera.zoom())
-                .trans(camera.x, camera.y);
+        let transform = c
+            .transform
+            .scale(camera.zoom(), camera.zoom())
+            .trans(camera.x, camera.y);
 
-            let square_transform = transform
-                .trans(square_x, square_y)
-                .rot_rad(rotation)
-                .trans(-150.0, -150.0);
+        let square_transform = transform
+            .trans(square_x, square_y)
+            .rot_rad(app_state.rotation)
+            .trans(-150.0, -150.0);
 
-            rectangle(FOREGROUND, square, square_transform, gl);
-        });
-    }
+        rectangle(FOREGROUND, square, square_transform, gl);
+    });
+}
 
-    fn update(&mut self, args: &UpdateArgs) {
-        self.rotation += 2.0 * args.dt;
-    }
+fn update(app_state: &mut AppState, args: &UpdateArgs) {
+    app_state.rotation += 2.0 * args.dt;
 }
 
 fn main() {
@@ -69,10 +64,9 @@ fn main() {
 
     let mut camera = Camera::new();
 
-    let mut app = App {
-        gl: GlGraphics::new(opengl),
-        rotation: 0.0,
-    };
+    let mut app_state = AppState { rotation: 0.0 };
+
+    let mut gl = GlGraphics::new(opengl);
 
     let mut left_down = false;
     let mut x = 0.;
@@ -80,32 +74,32 @@ fn main() {
 
     let mut events = Events::new(EventSettings::new());
     while let Some(e) = events.next(&mut window) {
-        if let Some(args) = e.render_args() {
-            app.render(&args, &camera);
-        } else if let Some(args) = e.update_args() {
-            app.update(&args);
-        } else if let Some(args) = e.mouse_relative_args() {
-            if left_down {
-                camera.x += args[0] / camera.zoom();
-                camera.y += args[1] / camera.zoom();
+        match e {
+            Event::Loop(Loop::Update(args)) => update(&mut app_state, &args),
+            Event::Loop(Loop::Render(args)) => render(&app_state, &args, &camera, &mut gl),
+            Event::Input(Input::Move(Motion::MouseScroll(args)), _) => {
+                if args[1] > 0. {
+                    camera.zoom_at(x, y, ZoomDirection::In);
+                } else if args[1] < 0. {
+                    camera.zoom_at(x, y, ZoomDirection::Out);
+                }
             }
-        } else if let Some(Button::Mouse(b)) = e.press_args() {
-            if b == MouseButton::Left {
-                left_down = true;
+            Event::Input(Input::Move(Motion::MouseCursor(args)), _) => {
+                x = args[0] as f64;
+                y = args[1] as f64;
             }
-        } else if let Some(Button::Mouse(b)) = e.release_args() {
-            if b == MouseButton::Left {
-                left_down = false;
+            Event::Input(Input::Move(Motion::MouseRelative(args)), _) => {
+                if left_down {
+                    camera.x += args[0] / camera.zoom();
+                    camera.y += args[1] / camera.zoom();
+                }
             }
-        } else if let Some(args) = e.mouse_scroll_args() {
-            if args[1] > 0. {
-                camera.zoom_at(x, y, ZoomDirection::In);
-            } else if args[1] < 0. {
-                camera.zoom_at(x, y, ZoomDirection::Out);
+            Event::Input(Input::Button(args), _) => {
+                if args.button == Button::Mouse(MouseButton::Left) {
+                    left_down = args.state == ButtonState::Press;
+                }
             }
-        } else if let Some(args) = e.mouse_cursor_args() {
-            x = args[0] as f64;
-            y = args[1] as f64;
-        }
+            _ => {}
+        };
     }
 }
