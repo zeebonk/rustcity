@@ -7,27 +7,25 @@ mod camera;
 mod utils;
 
 use glutin_window::GlutinWindow as Window;
-use opengl_graphics::{GlGraphics, OpenGL};
+use opengl_graphics::{GlGraphics, OpenGL, Texture, TextureSettings};
 use piston::event_loop::{EventSettings, Events};
-use piston::input::{Button, MouseButton, RenderArgs, UpdateArgs, ButtonState};
+use piston::input::{Button, ButtonState, MouseButton, RenderArgs, UpdateArgs};
 use piston::window::WindowSettings;
 
 use piston::{Event, Input, Loop, Motion};
+use std::path::Path;
 
 use camera::{Camera, ZoomDirection};
 
 pub struct AppState {
     rotation: f64,
+    texture: Texture,
 }
 
 fn render(app_state: &AppState, args: &RenderArgs, camera: &Camera, gl: &mut GlGraphics) {
     use graphics::*;
 
     const BACKGROUND: [f32; 4] = [1., 1., 1., 1.];
-    const FOREGROUND: [f32; 4] = [1.0, 0.0, 0.0, 1.0];
-
-    let square = rectangle::square(0.0, 0.0, 300.0);
-    let (square_x, square_y) = (300., 300.);
 
     gl.draw(args.viewport(), |c, gl| {
         clear(BACKGROUND, gl);
@@ -37,12 +35,12 @@ fn render(app_state: &AppState, args: &RenderArgs, camera: &Camera, gl: &mut GlG
             .scale(camera.zoom(), camera.zoom())
             .trans(camera.x, camera.y);
 
-        let square_transform = transform
-            .trans(square_x, square_y)
+        let tile_transform = transform
+            .trans(300., 300.)
             .rot_rad(app_state.rotation)
-            .trans(-150.0, -150.0);
+            .trans(-50., -32.5);
 
-        rectangle(FOREGROUND, square, square_transform, gl);
+        image(&app_state.texture, tile_transform, gl);
     });
 }
 
@@ -64,7 +62,11 @@ fn main() {
 
     let mut camera = Camera::new();
 
-    let mut app_state = AppState { rotation: 0.0 };
+    let mut app_state = AppState {
+        rotation: 0.0,
+        texture: Texture::from_path(Path::new("assets/slopeE.png"), &TextureSettings::new())
+            .unwrap(),
+    };
 
     let mut gl = GlGraphics::new(opengl);
 
