@@ -56,7 +56,7 @@ impl App {
 }
 
 fn main() {
-    let opengl = OpenGL::V3_2;
+    let opengl = OpenGL::V4_5;
 
     let mut window: Window = WindowSettings::new("RustCity", [1024, 768])
         .graphics_api(opengl)
@@ -86,8 +86,8 @@ fn main() {
             app.update(&args);
         } else if let Some(args) = e.mouse_relative_args() {
             if left_down {
-                camera.x += args[0];
-                camera.y += args[1];
+                camera.x += args[0] / camera.zoom();
+                camera.y += args[1] / camera.zoom();
             }
         } else if let Some(Button::Mouse(b)) = e.press_args() {
             if b == MouseButton::Left {
