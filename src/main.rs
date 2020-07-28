@@ -4,6 +4,7 @@ extern crate opengl_graphics;
 extern crate piston;
 
 mod camera;
+mod grid;
 mod utils;
 
 use glutin_window::GlutinWindow as Window;
@@ -16,43 +17,11 @@ use piston::{Event, Input, Loop, Motion};
 use std::path::Path;
 
 use camera::{Camera, ZoomDirection};
+use grid::Grid;
 
 pub struct AppState {
-    rotation: f64,
     texture: Texture,
-    grid: [[i32; 80]; 80],
-}
-
-fn render(app_state: &AppState, args: &RenderArgs, camera: &Camera, gl: &mut GlGraphics) {
-    use graphics::*;
-
-    const BACKGROUND: [f32; 4] = [1., 1., 1., 1.];
-
-    gl.draw(args.viewport(), |c, gl| {
-        clear(BACKGROUND, gl);
-
-        let transform = c
-            .transform
-            .scale(camera.zoom(), camera.zoom())
-            .trans(camera.x, camera.y);
-
-        for y in 0..app_state.grid.len() {
-            let row = app_state.grid[y];
-            for x in 0..row.len() {
-                let xx = x as f64;
-                let yy = y as f64;
-                let tile_transform = transform
-                    .trans(xx * 100., yy * 65.)
-                    .rot_rad(app_state.rotation)
-                    .trans(-50., -32.5);
-                image(&app_state.texture, tile_transform, gl);
-            }
-        }
-    });
-}
-
-fn update(app_state: &mut AppState, args: &UpdateArgs) {
-    app_state.rotation += 2.0 * args.dt;
+    grid: Grid,
 }
 
 fn main() {
@@ -70,9 +39,8 @@ fn main() {
     let mut camera = Camera::new();
 
     let mut app_state = AppState {
-        grid: [[0; 80]; 80],
-        rotation: 0.0,
-        texture: Texture::from_path(Path::new("assets/slopeE.png"), &TextureSettings::new())
+        grid: Grid::new(100, 100),
+        texture: Texture::from_path(Path::new("assets/grass.png"), &TextureSettings::new())
             .unwrap(),
     };
 
@@ -112,4 +80,34 @@ fn main() {
             _ => {}
         };
     }
+}
+
+fn update(_app_state: &mut AppState, _args: &UpdateArgs) {}
+
+fn render(app_state: &AppState, args: &RenderArgs, camera: &Camera, gl: &mut GlGraphics) {
+    use graphics::*;
+
+    const BACKGROUND: [f32; 4] = [1., 1., 1., 1.];
+
+    gl.draw(args.viewport(), |c, gl| {
+        clear(BACKGROUND, gl);
+
+        let transform = c
+            .transform
+            .scale(camera.zoom(), camera.zoom())
+            .trans(camera.x, camera.y);
+
+        for y in 0..app_state.grid.height() {
+            for x in (0..app_state.grid.width()).rev() {
+                let height = app_state.grid.get(x, y) as f64;
+                let x = x as f64;
+                let y = y as f64;
+
+                let tile_x = x * (100. / 2.) + (y * (100. / 2.));
+                let tile_y = y * (50. / 2.) - (x * (50. / 2.) - 7. * height);
+                let tile_transform = transform.trans(tile_x, tile_y);
+                image(&app_state.texture, tile_transform, gl);
+            }
+        }
+    });
 }
