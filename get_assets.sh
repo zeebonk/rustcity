@@ -1,10 +1,14 @@
 #!/bin/bash
 set -euo pipefail
 
+function load_opengameart_pack {
+    wget https://opengameart.org/sites/default/files/$1
+    unzip $1 -d ./dump
+    mv ./dump/png/* ./assets
+    rm -rf ./dump $1
+}
+
 rm -rf ./assets
-wget https://opengameart.org/sites/default/files/roadTiles_water.zip
-unzip roadTiles_water.zip -d ./assets
-rm ./assets/*.*
-mv ./assets/png/* ./assets
-rm -r ./assets/png
-rm roadTiles_water.zip
+mkdir assets
+load_opengameart_pack roadTiles_water.zip
+load_opengameart_pack roadTiles_nova.zip
