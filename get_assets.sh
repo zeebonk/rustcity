@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-rm -r ./assets
+rm -rf ./assets
 wget https://opengameart.org/sites/default/files/roadTiles_water.zip
 unzip roadTiles_water.zip -d ./assets
 rm ./assets/*.*
