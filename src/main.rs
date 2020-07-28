@@ -20,6 +20,7 @@ use camera::{Camera, ZoomDirection};
 pub struct AppState {
     rotation: f64,
     texture: Texture,
+    grid: [[i32; 80]; 80],
 }
 
 fn render(app_state: &AppState, args: &RenderArgs, camera: &Camera, gl: &mut GlGraphics) {
@@ -35,12 +36,18 @@ fn render(app_state: &AppState, args: &RenderArgs, camera: &Camera, gl: &mut GlG
             .scale(camera.zoom(), camera.zoom())
             .trans(camera.x, camera.y);
 
-        let tile_transform = transform
-            .trans(300., 300.)
-            .rot_rad(app_state.rotation)
-            .trans(-50., -32.5);
-
-        image(&app_state.texture, tile_transform, gl);
+        for y in 0..app_state.grid.len() {
+            let row = app_state.grid[y];
+            for x in 0..row.len() {
+                let xx = x as f64;
+                let yy = y as f64;
+                let tile_transform = transform
+                    .trans(xx * 100., yy * 65.)
+                    .rot_rad(app_state.rotation)
+                    .trans(-50., -32.5);
+                image(&app_state.texture, tile_transform, gl);
+            }
+        }
     });
 }
 
@@ -63,6 +70,7 @@ fn main() {
     let mut camera = Camera::new();
 
     let mut app_state = AppState {
+        grid: [[0; 80]; 80],
         rotation: 0.0,
         texture: Texture::from_path(Path::new("assets/slopeE.png"), &TextureSettings::new())
             .unwrap(),
